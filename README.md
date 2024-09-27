@@ -14,6 +14,10 @@ conda activate dynamixel
 ```
 
 ```
+pip install dynamixel-sdk
+```
+
+```
 python3 dynamixel_controller.py
 ```
 
