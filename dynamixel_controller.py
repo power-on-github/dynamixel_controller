@@ -54,7 +54,7 @@ dxl_goal_position = [DXL_MINIMUM_POSITION_VALUE, DXL_MAXIMUM_POSITION_VALUE]    
 
 
 class DynamixelController:
-    def __init__(self, dxl_id, initial_pos, torque_on=True):
+    def __init__(self, dxl_id, initial_pos=None, torque_on=True):
         """initialize instances and set dynamixel
 
         Args:
@@ -105,15 +105,16 @@ class DynamixelController:
 
 
         # Enable Dynamixel Torque
-        
-        
-        # set dynamixel to initial position
-        if self.dxl_type == "single":
-            self.moveSingleDynamixel(dxl_goal_position=initial_pos)
-        else:
-            self.moveGroupDynamixel(initial_pos)
         if torque_on:
             self.torqueOn()
+        
+        # set dynamixel to initial position
+        if initial_pos is not None:
+            if self.dxl_type == "single":
+                self.moveSingleDynamixel(dxl_goal_position=initial_pos)
+            else:
+                self.moveGroupDynamixel(initial_pos)
+        
         self.initialized = True
             
     def torqueOn(self):
@@ -137,7 +138,28 @@ class DynamixelController:
                     print("%s" % self.packetHandler.getRxPacketError(dxl_error))
                 else:
                     print(f"Dynamixel{id} has been successfully connected")
-                    
+    
+    def torqueOff(self):
+        if self.dxl_type == "single":
+            dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(self.portHandler, self.dxl_id, ADDR_MX_TORQUE_ENABLE, TORQUE_DISABLE)
+            if dxl_comm_result != COMM_SUCCESS:
+                print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
+            elif dxl_error != 0:
+                print("%s" % self.packetHandler.getRxPacketError(dxl_error))
+        else:
+            for id in self.dxl_id:
+                dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(self.portHandler, id, ADDR_MX_TORQUE_ENABLE, TORQUE_DISABLE)
+                if dxl_comm_result != COMM_SUCCESS:
+                    print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
+                elif dxl_error != 0:
+                    print("%s" % self.packetHandler.getRxPacketError(dxl_error))
+    
+    def moveDynamixel(self, dxl_goal_position):
+        if self.dxl_type == "single":
+            self.moveSingleDynamixel(dxl_goal_position)
+        else:
+            self.moveGroupDynamixel(dxl_goal_position)
+            
     def moveSingleDynamixel(self, dxl_goal_position):
         assert self.dxl_type == "single", "Not single mode"
         # Write goal position
@@ -159,6 +181,7 @@ class DynamixelController:
 
             if not abs(dxl_goal_position - dxl_present_position) > DXL_MOVING_STATUS_THRESHOLD:
                 break
+    
     def moveGroupDynamixel(self, dxl_goal_position):
         # Allocate goal position value into byte array
         #param_goal_position = [DXL_LOBYTE(DXL_LOWORD(dxl_goal_position[index])), DXL_HIBYTE(DXL_LOWORD(dxl_goal_position[index])), DXL_LOBYTE(DXL_HIWORD(dxl_goal_position[index])), DXL_HIBYTE(DXL_HIWORD(dxl_goal_position[index]))]
@@ -184,11 +207,7 @@ class DynamixelController:
         # Clear syncwrite parameter storage
         self.groupSyncWrite.clearParam()
 
-    def moveDynamixel(self, dxl_goal_position):
-        if self.dxl_type == "single":
-            self.moveSingleDynamixel(dxl_goal_position)
-        else:
-            self.moveGroupDynamixel(dxl_goal_position)
+            
     def getSinglePosition(self):
         assert self.dxl_type == "single"
         dxl_present_position, dxl_comm_result, dxl_error = self.packetHandler.read2ByteTxRx(self.portHandler, self.dxl_id, ADDR_MX_PRESENT_POSITION)
@@ -220,20 +239,7 @@ class DynamixelController:
             return self.getSinglePosition()
         else:
             return self.getGroupPosition()
-    def torqueOff(self):
-        if self.dxl_type == "single":
-            dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(self.portHandler, self.dxl_id, ADDR_MX_TORQUE_ENABLE, TORQUE_DISABLE)
-            if dxl_comm_result != COMM_SUCCESS:
-                print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
-            elif dxl_error != 0:
-                print("%s" % self.packetHandler.getRxPacketError(dxl_error))
-        else:
-            for id in self.dxl_id:
-                dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(self.portHandler, id, ADDR_MX_TORQUE_ENABLE, TORQUE_DISABLE)
-                if dxl_comm_result != COMM_SUCCESS:
-                    print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
-                elif dxl_error != 0:
-                    print("%s" % self.packetHandler.getRxPacketError(dxl_error))
+    
     def __del__(self):
          # Disable Dynamixel Torque
         if not self.initialized:
@@ -247,7 +253,7 @@ class DynamixelController:
         
 if __name__ == "__main__":
     xel = DynamixelController(dxl_id=[DXL_ID], initial_pos=[2000], torque_on=True)
-    
+    time.sleep(1)
     while True:
         xel.torqueOff()
         print(xel.getPosition())
